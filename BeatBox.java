@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.*;
 import java.util.ArrayList;
 import javax.sound.midi.*;
 
@@ -14,8 +15,8 @@ public class BeatBox {
     JFrame theFrame;
 
     String[] instrumentNames = {"Bass Drum", "Closed Hi-Hat", "Open Hi-Hat", "Acoustic Snare", "Crash Cymbal", "Hand Clap", "High Tom",
-    "Hi Bongo", "Maracas", "Whistle", "Low Conga", "Cowbell", "Vibraslap", "Low-mid Tom", "High Agogo", "Open Hi Conga"};
-    int[] instruments = {35,42, 46, 38, 49, 39, 50, 60, 70, 72, 64, 56, 58, 47, 67, 63};
+            "Hi Bongo", "Maracas", "Whistle", "Low Conga", "Cowbell", "Vibraslap", "Low-mid Tom", "High Agogo", "Open Hi Conga"};
+    int[] instruments = {35, 42, 46, 38, 49, 39, 50, 60, 70, 72, 64, 56, 58, 47, 67, 63};
 
     public static void main(String[] args) {
         new BeatBox().buildGUI();
@@ -54,6 +55,14 @@ public class BeatBox {
         JButton pickAll = new JButton("Pick all");
         pickAll.addActionListener(new MyPickAllListener());
         buttonBox.add(pickAll);
+
+        JButton saveInFile = new JButton("Save in file");
+        saveInFile.addActionListener(new MySendListener());
+        buttonBox.add(saveInFile);
+
+        JButton loadFromFile = new JButton("Load from file");
+        loadFromFile.addActionListener(new MyReadListener());
+        buttonBox.add(loadFromFile);
 
         Box nameBox = new Box(BoxLayout.Y_AXIS);
 
@@ -94,7 +103,9 @@ public class BeatBox {
             track = sequence.createTrack();
             sequencer.setTempoInBPM(120);
 
-        } catch (Exception ex) {ex.printStackTrace();}
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
     public void buildTrackAndStart() {
@@ -122,33 +133,35 @@ public class BeatBox {
 
         track.add(makeEvent(192, 9, 1, 0, 15));
         try {
-             sequencer.setSequence(sequence);
-             sequencer.setLoopCount(9999999);
-             sequencer.start();
-             sequencer.setTempoInBPM(120);
-        } catch (Exception ex) {ex.printStackTrace();}
+            sequencer.setSequence(sequence);
+            sequencer.setLoopCount(9999999);
+            sequencer.start();
+            sequencer.setTempoInBPM(120);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
-    public class MyStartListener implements ActionListener{
+    public class MyStartListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             buildTrackAndStart();
         }
     }
 
-    public class MyStopListener implements ActionListener{
+    public class MyStopListener implements ActionListener {
         public void actionPerformed(ActionEvent a) {
             sequencer.stop();
         }
     }
 
-    public class MyUpTempoListener implements ActionListener{
+    public class MyUpTempoListener implements ActionListener {
         public void actionPerformed(ActionEvent ex) {
             float tempoFactor = sequencer.getTempoFactor();
             sequencer.setTempoFactor((float) (tempoFactor * 1.05));
         }
     }
 
-    public class MyDownTempoListener implements ActionListener{
+    public class MyDownTempoListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             float tempoFactor = sequencer.getTempoFactor();
             sequencer.setTempoFactor((float) (tempoFactor * .95));
@@ -180,7 +193,7 @@ public class BeatBox {
 
             int key = list[i];
 
-            if(key != 0) {
+            if (key != 0) {
                 track.add(makeEvent(144, 9, key, 100, i));
                 track.add(makeEvent(128, 9, key, 100, i + 1));
             }
@@ -193,8 +206,54 @@ public class BeatBox {
             ShortMessage a = new ShortMessage();
             a.setMessage(comd, chan, one, two);
             event = new MidiEvent(a, tick);
-        } catch (Exception ex) {ex.printStackTrace();}
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         return event;
     }
 
+    public class MySendListener implements ActionListener {
+
+        public void actionPerformed(ActionEvent e) {
+            boolean[] checkBoxState = new boolean[256];
+            for (int i = 0; i < 256; i++) {
+                checkBoxState[i] = (((JCheckBox) checkboxList.get(i)).isSelected());
+            }
+            try {
+                JFileChooser saveFile = new JFileChooser();
+                saveFile.showSaveDialog(theFrame);
+                FileOutputStream fileStream = new FileOutputStream(saveFile.getSelectedFile());
+                ObjectOutputStream os = new ObjectOutputStream(fileStream);
+                os.writeObject(checkBoxState);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    public class MyReadListener implements ActionListener {
+
+        public void actionPerformed(ActionEvent e) {
+            boolean[] checkBoxState = null;
+            try{
+                JFileChooser loadFile = new JFileChooser();
+                loadFile.showOpenDialog(theFrame);
+                FileInputStream fileFrom = new FileInputStream(loadFile.getSelectedFile());
+                ObjectInputStream is = new ObjectInputStream(fileFrom);
+                sequencer.stop();
+                checkBoxState = (boolean[]) is.readObject();
+            }
+            catch (Exception ex) {
+                ex.printStackTrace();
+            }
+
+            for (int i = 0; i < 256; i++) {
+                JCheckBox check = (JCheckBox) checkboxList.get(i);
+                if (checkBoxState[i]) {
+                    check.setSelected(true);
+                } else check.setSelected(false);
+            }
+            buildTrackAndStart();
+        }
+    }
 }
